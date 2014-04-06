@@ -7,7 +7,7 @@ years. Users appreciate the previews because these files are frequently quite
 large, and are often in uncommon or proprietary formats. Our tile container is
 a simple JSON header, followed by concatenated JPG and PNG files that are
 referenced by offsets. This package is an experiment in using the MBTiles
-container format.
+container format as an alternative.
 
 Because EM images are frequently stacks of 2D images or 3D images the database
 contains an additional table to support multiple tilesets. Tiles are stored in
