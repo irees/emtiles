@@ -17,17 +17,18 @@ import EMAN2
 # Test image from Ryan Rochat.
 
 class EMDataBuilder(object):
-    """Convert MBTiles from an EMAN2-readable image.
+    """Create an MBTiles SQLite database from an EMAN2-readable image.
     
     Examples:
     builder = EMDataBuilder("test.dm3", "test.dm3.mbtiles")
     builder.build()
     """
     
-    def __init__(self, infile, outfile):
+    def __init__(self, infile, outfile, tileformat='jpg'):
         """Input image, output MBTiles."""
         self.infile = infile
         self.outfile = outfile
+        self.tileformat = 'jpg'
         self.tmpdir = 'build' # tempfile.mkdtemp(prefix='emtiles.')
 
     def log(self, msg):
@@ -50,7 +51,7 @@ class EMDataBuilder(object):
         self.conn.close()
 
     def build_image(self, index):
-        """Build for a single image index in the file."""
+        """Build for an image index in the file."""
         self.log("build_image: %s"%index)
         img = EMAN2.EMData()
         img.read_image(self.infile, index, True)
@@ -76,7 +77,7 @@ class EMDataBuilder(object):
         return header
 
     def build_nz(self, img, nz=1, index=0):
-        """Build tiles, thumbnails, pspec, etc. for single 2D EMData."""
+        """Build tiles, thumbnails, pspec, etc. for a 2D EMData."""
         for tile in self.build_tiles(img, nz=nz, index=index):
             self._insert_tile(*tile)
 
@@ -106,7 +107,7 @@ class EMDataBuilder(object):
                     i = img2.get_clip(EMAN2.Region(x, y, tilesize, tilesize), fill=rmax)
                     i.set_attr("render_min", rmin)
                     i.set_attr("render_max", rmax)
-                    fsp = "tile.index-%d.level-%d.z-%d.x-%d.y-%d.jpg"%(index, level, nz, x/tilesize, y/tilesize)
+                    fsp = "tile.index-%d.level-%d.z-%d.x-%d.y-%d.%s"%(index, level, nz, x/tilesize, y/tilesize, self.tileformat)
                     fsp = os.path.join(self.tmpdir, fsp)
                     i.write_image(fsp)
                     # Insert into MBTiles
@@ -115,7 +116,7 @@ class EMDataBuilder(object):
             img2.process_inplace("math.meanshrink",{"n":2})
     
     def build_fixed(self, img, index=0, nz=1, tilesize=256):
-        """Build a thumbnail of a 2D EMData."""
+        """Build thumbnail of a 2D EMData."""
         # Output files
         fsp = "fixed.index-%d.z-%d.size-%d.png"%(index, nz, tilesize)
         fsp = os.path.join(self.tmpdir, fsp)
@@ -222,7 +223,7 @@ class EMDataBuilder(object):
             'type': 'baselayer',
             'version': '1.1',
             'description': 'EM Tiles',
-            'format': 'jpg'
+            'format': self.tileformat
         }
         cursor = self.conn.cursor()
         cursor.execute(create_tilestack)
