@@ -1,5 +1,7 @@
 # Electron Microscopy MBTiles
 
+** EXPERIMENTAL **
+
 We have been creating zoomable tilesets from EM images for many years, stored
 in a custom tile container comprised of a JSON header and concatenated JPG and
 PNG files that are referenced by file offset. This package instead uses the
