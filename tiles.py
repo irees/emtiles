@@ -1,10 +1,14 @@
-"""File handlers."""
+"""Create MBTiles from an EMAN2-readable image.
+
+Single 2D images, stacks of images, and 3D images are supported.
+
+See README.md for additional details.
+"""
 import math
 import os
 import json
 import sys
 import tempfile
-import cPickle as pickle
 
 import sqlite3
 import EMAN2
@@ -13,24 +17,28 @@ class EMDataBuilder(object):
     """Convert EM Images to MBTiles.
     
     Examples:
-    builder = EMDataBuilder()
-    tile = builder.build("test.dm3", "test.dm3.mbtiles")
+    builder = EMDataBuilder("test.dm3", "test.dm3.mbtiles")
+    builder.build()
     """
+    
+    def __init__(self, workfile, outfile):
+        self.workfile = workfile
+        self.outfile = outfile
+        self.tmpdir = "build" # tempfile.mkdtemp(prefix='emen2thumbs.')
+
     def log(self, msg):
         print msg
     
-    def build(self, workfile, outfile):
-        """Main build function."""
-        self.log("Building: %s -> %s"%(workfile, outfile))
-        self.workfile = workfile
-        self.tmpdir = "build" # tempfile.mkdtemp(prefix='emen2thumbs.')
+    def build(self):
+        """Build a tileset for this file."""
+        self.log("Building: %s -> %s"%(self.workfile, self.outfile))
 
         # Open and create the sqlite database
-        self.conn = sqlite3.connect(outfile)
+        self.conn = sqlite3.connect(self.outfile)
         self.create_sqlite()
         
         # EM files often contain stacks of images. Build for each image.
-        self.nimg = EMAN2.EMUtil.get_image_count(workfile)
+        self.nimg = EMAN2.EMUtil.get_image_count(self.workfile)
         for index in range(self.nimg):
             self.build_image(index)
         
@@ -39,9 +47,7 @@ class EMDataBuilder(object):
 
     def build_image(self, index):
         """Build a single image index in the file."""
-        # Copy basic header information
         self.log("build_image: %s"%index)
-        header = {}
         img = EMAN2.EMData()
         img.read_image(self.workfile, index, True)
         header = img.get_attr_dict()
@@ -53,7 +59,7 @@ class EMDataBuilder(object):
             if self.nimg > 1:
                 # ... stack of 2D images.
                 self.build_nz(img2, index=index, fixed=[256,512])
-            else:
+            elif self.nimg == 1:
                 # regular old 2D image -- also generate power spectrum + tiles.
                 self.build_nz(img2, index=index, tile=True, pspec=True, fixed=[256,512])
         else:        
@@ -67,25 +73,13 @@ class EMDataBuilder(object):
 
     def build_nz(self, img, nz=1, index=0, tile=False, pspec=False, fixed=None):
         """Build a single 2D slice from a 2D or 3D image."""
-        self.log("build_nz: nz %s, index %s"%(nz, index))
-        header = {}
-        h = img.get_attr_dict()
-        header['nx'] = h['nx']
-        header['ny'] = h['ny']
-        header['nz'] = h['nz']
         if tile:
-            header['tiles'] = self.build_tiles(img, nz=nz, index=index)
-
+            self.build_tiles(img, nz=nz, index=index)
         if pspec:
-            header['pspec'], header['pspec1d'] = self.build_pspec(img, nz=nz, index=index)
-
-        if fixed:
-            header['fixed'] = {}
-            for f in fixed:
-                header['fixed'][f] = self.build_fixed(img, tilesize=f, nz=nz, index=index)
-
-        return header
-            
+            self.build_pspec(img, nz=nz, index=index)
+        for f in (fixed or []):
+            self.build_fixed(img, tilesize=f, nz=nz, index=index)
+                            
     def build_tiles(self, img, index=0, nz=1, tilesize=256):
         """Build tiles for a 2D slice."""
         self.log("build_tiles: nz %s, index %s, tilesize: %s"%(nz, index, tilesize))
@@ -95,8 +89,6 @@ class EMDataBuilder(object):
         levels = math.ceil( math.log( max(img.get_xsize(), img.get_ysize()) / tilesize) / math.log(2.0) )
         # Tile header
         header = img.get_attr_dict()
-        tile_dict = {}
-
         # Step through shrink range creating tiles
         for level in range(1, int(levels)+1):
             self.log("... level: %s"%level)
@@ -105,21 +97,18 @@ class EMDataBuilder(object):
             rmax = img2.get_attr("mean") + img2.get_attr("sigma") * 3.0
             for x in range(0, img2.get_xsize(), tilesize):
                 for y in range(0, img2.get_ysize(), tilesize):
+                    # Write output
                     i = img2.get_clip(EMAN2.Region(x, y, tilesize, tilesize), fill=rmax)
                     i.set_attr("render_min", rmin)
                     i.set_attr("render_max", rmax)
                     i.set_attr("jpeg_quality", 80)
-                    # Write output
                     fsp = "tile.index-%d.scale-%d.z-%d.x-%d.y-%d.jpg"%(index, scale, nz, x/tilesize, y/tilesize)
                     fsp = os.path.join(self.tmpdir, fsp)
-                    self.insert_tile(i, fsp, index, nz, level, x/tilesize, y/tilesize)
-                    
+                    self._insert_tile(i, fsp, index, nz, level, x/tilesize, y/tilesize)                    
             # Shrink by 2 for next round.
             img2.process_inplace("math.meanshrink",{"n":2})
-
-        return tile_dict
     
-    def insert_tile(self, img, fsp, index, nz, level, x, y):
+    def _insert_tile(self, img, fsp, index, nz, level, x, y):
         self.log("... write_img: fsp %s, index %s, nz %s, level %s, x %s, y %s"%(fsp, index, nz, level, x, y))
         img.write_image(fsp)
         with open(fsp) as f:
@@ -294,8 +283,8 @@ class EMDataBuilder(object):
 
 # IMPORTANT -- Do not change this.
 if __name__ == "__main__":
-    builder = EMDataBuilder()
-    tile = builder.build("test.dm3", "test.mbtiles")            
+    builder = EMDataBuilder("test.dm3", "test.mbtiles")
+    builder.build()            
     
             
             
