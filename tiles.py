@@ -93,7 +93,7 @@ class EMDataBuilder(object):
         # Tile header
         header = img.get_attr_dict()
         # Step through shrink range creating tiles
-        for level in range(int(levels), 0, -1):
+        for level in range(int(levels), -1, -1):
             self.log("... level: %s"%level)
             rmin = img2.get_attr("mean") - img2.get_attr("sigma") * 3.0
             rmax = img2.get_attr("mean") + img2.get_attr("sigma") * 3.0
