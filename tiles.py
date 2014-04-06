@@ -2,7 +2,7 @@
 
 Single 2D images, stacks of images, and 3D images are supported.
 
-See README.md for additional details.
+See README.md for additional details. Note: experimental!
 """
 import math
 import os
@@ -17,7 +17,7 @@ import EMAN2
 # Test image from Ryan Rochat.
 
 class EMDataBuilder(object):
-    """Convert EM Images to MBTiles.
+    """Convert MBTiles from an EMAN2-readable image.
     
     Examples:
     builder = EMDataBuilder("test.dm3", "test.dm3.mbtiles")
@@ -123,7 +123,7 @@ class EMDataBuilder(object):
         thumb_scale = img.get_xsize() / float(tilesize), img.get_ysize() / float(tilesize)
         sc = 1 / max(thumb_scale)
         if tilesize == 0 or sc >= 1.0:
-            # Write out a full size 
+            # Tiny image, use full size.
             img2 = img.copy()
         else:
             # Shrink the image
@@ -140,10 +140,6 @@ class EMDataBuilder(object):
             
     def build_pspec(self, img, tilesize=512, nz=1, index=0):
         """Build a 2D FFT and 1D rotationally averaged power spectrum of a 2D EMData."""
-        # Return dictionaries
-        pspec_dict = {}
-        pspec1d_dict = {}
-
         # Output files
         outfile = "pspec.index-%d.z-%d.size-%d.png"%(index, nz, tilesize)
         outfile1d = "pspec1d.index-%d.z-%d.size-%d.json"%(index, nz, tilesize)
@@ -178,7 +174,7 @@ class EMDataBuilder(object):
 
         # Calculate radial power spectrum
         t = (tilesize/2)-1
-        y = a.calc_radial_dist(t, 1, 1, 0) # radial power spectrum (log)
+        y = a.calc_radial_dist(t, 1, 1, 0) 
         # Next version, I'll just insert data directly into MBTiles,
         # without going to disk and back.
         fsp = os.path.join(self.tmpdir, outfile1d)
