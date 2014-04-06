@@ -114,7 +114,7 @@ class EMDataBuilder(object):
     def build_fixed(self, img, index=0, nz=1, tilesize=256):
         """Build a thumbnail of a 2D EMData."""
         # Output files
-        fsp = "fixed.index-%d.z-%d.size-%d.jpg"%(index, nz, tilesize)
+        fsp = "fixed.index-%d.z-%d.size-%d.png"%(index, nz, tilesize)
         fsp = os.path.join(self.tmpdir, fsp)
 
         # The scale factor
@@ -177,6 +177,8 @@ class EMDataBuilder(object):
         # Calculate radial power spectrum
         t = (tilesize/2)-1
         y = a.calc_radial_dist(t, 1, 1, 0) # radial power spectrum (log)
+        # Next version, I'll just insert data directly into MBTiles,
+        # without going to disk and back.
         fsp = os.path.join(self.tmpdir, outfile1d)
         with open(fsp, 'wb') as f:
             json.dump(y, f)
@@ -193,7 +195,6 @@ class EMDataBuilder(object):
                 tile_data blob
             );
             """
-            
         create_tileinfo = """
             CREATE TABLE tileinfo (
                 tile_index integer,
@@ -202,11 +203,9 @@ class EMDataBuilder(object):
                 info_resolution integer,
                 info_data blob
             );"""
-
         create_metadata = """
             CREATE TABLE metadata (name text, value text);
             """
-
         create_tiles = """
             CREATE VIEW tiles AS
                 SELECT 
@@ -219,7 +218,6 @@ class EMDataBuilder(object):
                     tilestack.tile_index = 0 AND
                     tilestack.tile_nz = 1                   
         """
-
         metadata = {
             'name': self.workfile,
             'type': 'baselayer',
@@ -227,7 +225,6 @@ class EMDataBuilder(object):
             'description': 'EM Tiles',
             'format': 'jpg'
         }
-
         cursor = self.conn.cursor()
         cursor.execute(create_tilestack)
         cursor.execute(create_tileinfo)
