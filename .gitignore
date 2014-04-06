@@ -1,2 +1,4 @@
 tilestache/
 build/
+*.pyc
+test.mbtiles
