@@ -1,5 +1,2 @@
-build/
-images/
 tilestache/
-*.dm3
-*.mbtiles
+build/
