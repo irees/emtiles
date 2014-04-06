@@ -24,8 +24,9 @@ class EMDataBuilder(object):
     builder.build()
     """
     
-    def __init__(self, workfile, outfile):
-        self.workfile = workfile
+    def __init__(self, infile, outfile):
+        """Input image, output MBTiles."""
+        self.infile = infile
         self.outfile = outfile
         self.tmpdir = 'build' # tempfile.mkdtemp(prefix='emtiles.')
 
@@ -33,15 +34,15 @@ class EMDataBuilder(object):
         print msg
     
     def build(self):
-        """Build a tileset for this file."""
-        self.log("Building: %s -> %s"%(self.workfile, self.outfile))
+        """Build!"""
+        self.log("Building: %s -> %s"%(self.infile, self.outfile))
 
         # Open and create the sqlite database
         self.conn = sqlite3.connect(self.outfile)
         self.create_sqlite()
         
         # EM files often contain stacks of images. Build for each image.
-        self.nimg = EMAN2.EMUtil.get_image_count(self.workfile)
+        self.nimg = EMAN2.EMUtil.get_image_count(self.infile)
         for index in range(self.nimg):
             self.build_image(index)
         
@@ -49,15 +50,15 @@ class EMDataBuilder(object):
         self.conn.close()
 
     def build_image(self, index):
-        """Build a single image index in the file."""
+        """Build for a single image index in the file."""
         self.log("build_image: %s"%index)
         img = EMAN2.EMData()
-        img.read_image(self.workfile, index, True)
+        img.read_image(self.infile, index, True)
         header = img.get_attr_dict()
         if header['nz'] == 1:
             # 2D Image
             img2 = EMAN2.EMData()
-            img2.read_image(self.workfile, index, False)
+            img2.read_image(self.infile, index, False)
             img2.process_inplace("normalize")
             if self.nimg > 1:
                 # ... stack of 2D images.
@@ -70,12 +71,12 @@ class EMDataBuilder(object):
             for i in range(header['nz']):
                 region = EMAN2.Region(0, 0, i, header['nx'], header['ny'], 1)
                 img2 = EMAN2.EMData()
-                img2.read_image(self.workfile, 0, False, region)
+                img2.read_image(self.infile, 0, False, region)
                 self.build_nz(img2, index=index, nz=i)
         return header
 
     def build_nz(self, img, nz=1, index=0):
-        """Build a single 2D slice from a 2D or 3D image."""
+        """Build tiles, thumbnails, pspec, etc. for single 2D EMData."""
         for tile in self.build_tiles(img, nz=nz, index=index):
             self._insert_tile(*tile)
 
@@ -86,7 +87,7 @@ class EMDataBuilder(object):
             self._insert_tileinfo(*info)
                     
     def build_tiles(self, img, index=0, nz=1, tilesize=256):
-        """Build tiles for a 2D slice."""
+        """Build tiles for a 2D EMData."""
         self.log("build_tiles: nz %s, index %s, tilesize: %s"%(nz, index, tilesize))
         # Work with a copy of the EMData
         img2 = img.copy()        
@@ -217,7 +218,7 @@ class EMDataBuilder(object):
                     tilestack.tile_nz = 1                   
         """
         metadata = {
-            'name': self.workfile,
+            'name': self.infile,
             'type': 'baselayer',
             'version': '1.1',
             'description': 'EM Tiles',
