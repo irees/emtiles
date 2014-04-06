@@ -14,6 +14,8 @@ import argparse
 import sqlite3
 import EMAN2
 
+# Test image from Ryan Rochat.
+
 class EMDataBuilder(object):
     """Convert EM Images to MBTiles.
     
