@@ -14,11 +14,12 @@ class EMDataBuilder(object):
     builder = EMDataBuilder("test.dm3", "test.dm3.mbtiles")
     builder.build()
     """
-    def __init__(self, infile, outfile, tileformat='jpg'):
+    def __init__(self, infile, outfile, tileformat='jpg', unlink=False):
         """Input image, output MBTiles."""
         self.infile = infile
         self.writer = emtiles.tiles.EMTile(outfile, tileformat=tileformat)
         self.tileformat = tileformat
+        self.unlink = unlink
         self.tmpdir = '.' # tempfile.mkdtemp(prefix='emtiles.')
 
     def log(self, msg):
@@ -63,13 +64,13 @@ class EMDataBuilder(object):
     def build_nz(self, img, nz=0, index=0):
         """Build tiles, thumbnails, pspec, etc. for a 2D EMData."""
         for tile in self.build_tiles(img, nz=nz, index=index):
-            self.writer.insert_tile(*tile, unlink=True)
+            self.writer.insert_tile(*tile, unlink=self.unlink)
 
         for info in self.build_pspec(img, nz=nz, index=index):
-            self.writer.insert_tileinfo(*info, unlink=True)
+            self.writer.insert_tileinfo(*info, unlink=self.unlink)
 
         for info in self.build_fixed(img, nz=nz, index=index):
-            self.writer.insert_tileinfo(*info, unlink=True)
+            self.writer.insert_tileinfo(*info, unlink=self.unlink)
                     
     def build_tiles(self, img, index=0, nz=0, tilesize=256):
         """Build tiles for a 2D EMData."""
@@ -176,7 +177,8 @@ if __name__ == "__main__":
     parser.add_argument("infile", help="Input EM file")
     parser.add_argument("outfile", help="Output MBTiles file")
     parser.add_argument("--tileformat", help="Tile format", default="jpg")
+    parser.add_argument("--unlink", help="Remove temporary tile files", action='store_true')
     args = parser.parse_args()
-    builder = EMDataBuilder(args.infile, args.outfile, tileformat=args.tileformat)
+    builder = EMDataBuilder(args.infile, args.outfile, tileformat=args.tileformat, unlink=args.unlink)
     builder.build()
     

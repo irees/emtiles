@@ -7,6 +7,45 @@ import twisted.web.resource
 import twisted.web.server
 import emtiles.tiles
 
+VIEW = """
+<!DOCTYPE html>
+<html>
+<head>
+	<title>EMTiles Demo</title>
+    <link rel="stylesheet" href="http://leafletjs.com/dist/leaflet.css" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script type="text/javascript">
+        var maptemplate = 'tile/{z}/{x}/{y}';
+        $(document).ready(function() {
+            var update = function(){
+                var index = $("#set-index").val();
+                var nz = $("#set-nz").val();
+                layer.setUrl(maptemplate+"?index="+index+"&nz="+nz);
+            }
+            $("#set-index").change(update);
+            $("#set-nz").change(update);
+        });
+    </script>
+</head>
+<body>
+    <div>
+        Index: <input id="set-index" type="range" min="0" max="10" value="0">
+        Z: <input id="set-nz" type="range" min="0" max="10" value="0">
+    </div>
+	<div id="map" style="width: 800px; height: 800px"></div>
+	<script src="http://leafletjs.com/dist/leaflet.js"></script>
+	<script>
+		var map = L.map('map').setView([0, 0], 0);
+        var layer = L.tileLayer(maptemplate, {
+            'noWrap': true,
+        });
+        layer.addTo(map);
+	</script>
+</body>
+</html>
+"""
+
 class HTTPResponseCode(Exception):
     code = None
 
@@ -56,21 +95,31 @@ class EMTileServer(twisted.web.resource.Resource):
         
     def _render(self, request):
         # Route the request.
+        db = request.postpath[0]
         method = request.postpath[1]
         if method == 'tile':
             method = self.tile
         elif method == 'info':
             method = self.info
         else:
-            raise HTTP404("Unknown method.")
+            method = self.view
         return method(request)
+    
+    def view(self, request):
+        return VIEW, {}
     
     def tile(self, request):
         assert len(request.postpath) == 5
         db = request.postpath[0]
         db = "%s.mbtiles"%os.path.basename(db)
+        if not os.path.exists(db):
+            raise HTTP404("Tileset not found.")
         index = 0
+        if request.args.get('index'):
+            index = int(request.args['index'][0])
         nz = 0
+        if request.args.get('nz'):
+            nz = int(request.args['nz'][0])
         level = int(request.postpath[2])
         x = int(request.postpath[3])
         # Y is flipped in MBTiles!
