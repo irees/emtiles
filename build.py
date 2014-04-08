@@ -1,20 +1,11 @@
-"""Create MBTiles from an EMAN2-readable image.
-
-Single 2D images, stacks of images, and 3D images are supported.
-
-See README.md for additional details. Note: experimental!
-"""
 import math
 import os
 import json
-import sys
 import tempfile
 import argparse
 
-import sqlite3
 import EMAN2
-
-# Test image from Ryan Rochat.
+import emtiles.tiles
 
 class EMDataBuilder(object):
     """Create an MBTiles SQLite database from an EMAN2-readable image.
@@ -23,32 +14,25 @@ class EMDataBuilder(object):
     builder = EMDataBuilder("test.dm3", "test.dm3.mbtiles")
     builder.build()
     """
-    
     def __init__(self, infile, outfile, tileformat='jpg'):
         """Input image, output MBTiles."""
         self.infile = infile
-        self.outfile = outfile
-        self.tileformat = 'jpg'
-        self.tmpdir = 'build' # tempfile.mkdtemp(prefix='emtiles.')
+        self.writer = emtiles.tiles.EMTile(outfile, tileformat=tileformat)
+        self.tileformat = tileformat
+        self.tmpdir = '.' # tempfile.mkdtemp(prefix='emtiles.')
 
     def log(self, msg):
         print msg
     
     def build(self):
         """Build!"""
-        self.log("Building: %s -> %s"%(self.infile, self.outfile))
-
-        # Open and create the sqlite database
-        self.conn = sqlite3.connect(self.outfile)
-        self.create_sqlite()
-        
+        self.log("Building: %s"%(self.infile))
+        self.writer.create()
         # EM files often contain stacks of images. Build for each image.
         self.nimg = EMAN2.EMUtil.get_image_count(self.infile)
         for index in range(self.nimg):
             self.build_image(index)
-        
-        self.conn.commit()
-        self.conn.close()
+        self.writer.commit()
 
     def build_image(self, index):
         """Build for an image index in the file."""
@@ -79,13 +63,13 @@ class EMDataBuilder(object):
     def build_nz(self, img, nz=1, index=0):
         """Build tiles, thumbnails, pspec, etc. for a 2D EMData."""
         for tile in self.build_tiles(img, nz=nz, index=index):
-            self._insert_tile(*tile)
+            self.writer.insert_tile(*tile, unlink=True)
 
         for info in self.build_pspec(img, nz=nz, index=index):
-            self._insert_tileinfo(*info)
+            self.writer.insert_tileinfo(*info, unlink=True)
 
         for info in self.build_fixed(img, nz=nz, index=index):
-            self._insert_tileinfo(*info)
+            self.writer.insert_tileinfo(*info, unlink=True)
                     
     def build_tiles(self, img, index=0, nz=1, tilesize=256):
         """Build tiles for a 2D EMData."""
@@ -101,13 +85,16 @@ class EMDataBuilder(object):
             self.log("... level: %s"%level)
             rmin = img2.get_attr("mean") - img2.get_attr("sigma") * 3.0
             rmax = img2.get_attr("mean") + img2.get_attr("sigma") * 3.0
-            for x in range(0, img2.get_xsize(), tilesize):
-                for y in range(0, img2.get_ysize(), tilesize):
+            nx = img2.get_xsize()
+            ny = img2.get_ysize()
+            for x in range(0, nx, tilesize):
+                for y in range(0, ny, tilesize):
                     # Write output
+                    # Flip Y axis.
                     i = img2.get_clip(EMAN2.Region(x, y, tilesize, tilesize), fill=rmax)
                     i.set_attr("render_min", rmin)
                     i.set_attr("render_max", rmax)
-                    fsp = "tile.index-%d.level-%d.z-%d.x-%d.y-%d.%s"%(index, level, nz, x/tilesize, y/tilesize, self.tileformat)
+                    fsp = "tile.index-%d.nz-%d.level-%d.x-%d.y-%d.%s"%(index, nz, level, x/tilesize, y/tilesize, self.tileformat)
                     fsp = os.path.join(self.tmpdir, fsp)
                     i.write_image(fsp)
                     # Insert into MBTiles
@@ -118,7 +105,7 @@ class EMDataBuilder(object):
     def build_fixed(self, img, index=0, nz=1, tilesize=256):
         """Build thumbnail of a 2D EMData."""
         # Output files
-        fsp = "fixed.index-%d.z-%d.size-%d.png"%(index, nz, tilesize)
+        fsp = "fixed.index-%d.nz-%d.size-%d.png"%(index, nz, tilesize)
         fsp = os.path.join(self.tmpdir, fsp)
 
         # The scale factor
@@ -183,80 +170,13 @@ class EMDataBuilder(object):
         with open(fsp, 'wb') as f:
             json.dump(y, f)
         yield fsp, index, nz, 'pspec_json', tilesize/2    
-
-    def create_sqlite(self):
-        create_tilestack = """
-            CREATE TABLE tilestack (
-                tile_index integer,
-                tile_nz integer,
-                zoom_level integer, 
-                tile_column integer, 
-                tile_row integer, 
-                tile_data blob
-            );
-            """
-        create_tileinfo = """
-            CREATE TABLE tileinfo (
-                tile_index integer,
-                tile_nz integer,
-                info_type text,
-                info_resolution integer,
-                info_data blob
-            );"""
-        create_metadata = """
-            CREATE TABLE metadata (name text, value text);
-            """
-        create_tiles = """
-            CREATE VIEW tiles AS
-                SELECT 
-                    tilestack.zoom_level, 
-                    tilestack.tile_column,
-                    tilestack.tile_row,
-                    tilestack.tile_data
-                FROM tilestack
-                WHERE 
-                    tilestack.tile_index = 0 AND
-                    tilestack.tile_nz = 1                   
-        """
-        metadata = {
-            'name': self.infile,
-            'type': 'baselayer',
-            'version': '1.1',
-            'description': 'EM Tiles',
-            'format': self.tileformat
-        }
-        cursor = self.conn.cursor()
-        cursor.execute(create_tilestack)
-        cursor.execute(create_tileinfo)
-        cursor.execute(create_metadata)
-        cursor.execute(create_tiles)
-        for k,v in metadata.items():
-            cursor.execute("""INSERT INTO metadata(name, value) VALUES (?, ?)""", [k, v])
-        cursor.close()        
-        
-    def _insert_tile(self, fsp, index, nz, level, x, y):
-        with open(fsp) as f:
-            data = f.read()
-        cursor = self.conn.cursor()
-        query = """INSERT INTO tilestack(tile_index, tile_nz, zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?, ?, ?);"""
-        cursor.execute(query, [index, nz, level, x, y, sqlite3.Binary(data)])
-
-    def _insert_tileinfo(self, fsp, index, nz, info_type, info_resolution):
-        with open(fsp) as f:
-            data = f.read()
-        cursor = self.conn.cursor()
-        query = """INSERT INTO tileinfo(tile_index, tile_nz, info_type, info_resolution, info_data) VALUES (?, ?, ?, ?, ?);"""
-        cursor.execute(query, [index, nz, info_type, info_resolution, sqlite3.Binary(data)])
-
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("infile", help="Input EM file")
     parser.add_argument("outfile", help="Output MBTiles file")
+    parser.add_argument("--tileformat", help="Tile format", default="jpg")
     args = parser.parse_args()
+    builder = EMDataBuilder(args.infile, args.outfile, tileformat=args.tileformat)
+    builder.build()
     
-    builder = EMDataBuilder(args.infile, args.outfile)
-    builder.build()            
-    
-            
-            
