@@ -2,8 +2,9 @@
 <html>
 <head>
     <title>EMTiles Demo</title>
-    <link rel="stylesheet" href="http://leafletjs.com/dist/leaflet.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="//leafletjs.com/dist/leaflet.css" />
+	<script src="//leafletjs.com/dist/leaflet.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
     <script type="text/javascript">
         var maptemplate = 'tile/{z}/{x}/{y}';
@@ -24,13 +25,12 @@
         Z: <input id="set-nz" type="range" min="0" max="10" value="0">
     </div>
 	<div id="map" style="width: 800px; height: 800px; background: white;"></div>
-	<script src="http://leafletjs.com/dist/leaflet.js"></script>
-	<script>
-		var map = L.map('map').setView([0, 0], 0);
-        var layer = L.tileLayer(maptemplate, {
-            'noWrap': true,
-        });
-        layer.addTo(map);
-	</script>
+    	<script>
+    		var map = L.map('map').setView([0, 0], 0);
+            var layer = L.tileLayer(maptemplate, {
+                'noWrap': true,
+            });
+            layer.addTo(map);
+    	</script>
 </body>
 </html>
