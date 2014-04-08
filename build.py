@@ -78,7 +78,7 @@ class EMDataBuilder(object):
         # Work with a copy of the EMData
         img2 = img.copy()        
         # Calculate the number of zoom levels based on the tile size
-        levels = math.ceil( math.log( max(img.get_xsize(), img.get_ysize()) / tilesize) / math.log(2.0) )
+        levels = math.ceil( math.log( max(img.get_xsize(), img.get_ysize()) / float(tilesize), 2.0 )  )
         # Tile header
         header = img.get_attr_dict()
         # Step through shrink range creating tiles
@@ -86,13 +86,17 @@ class EMDataBuilder(object):
             self.log("... level: %s"%level)
             rmin = img2.get_attr("mean") - img2.get_attr("sigma") * 3.0
             rmax = img2.get_attr("mean") + img2.get_attr("sigma") * 3.0
+            # Center the image
             nx = img2.get_xsize()
             ny = img2.get_ysize()
-            for x in range(0, nx, tilesize):
-                for y in range(0, ny, tilesize):
+            nxoffset = (tilesize * 2**level - nx) / 2.0
+            nyoffset = (tilesize * 2**level - ny) / 2.0
+            print "nxoffset?:", nxoffset
+            print "nyoffset?:", nyoffset
+            for x in range(0, tilesize*2**level, tilesize):
+                for y in range(0, tilesize*2**level, tilesize):
                     # Write output
-                    # Flip Y axis.
-                    i = img2.get_clip(EMAN2.Region(x, y, tilesize, tilesize), fill=rmax)
+                    i = img2.get_clip(EMAN2.Region(x-nxoffset, y-nyoffset, tilesize, tilesize), fill=rmax)
                     i.set_attr("render_min", rmin)
                     i.set_attr("render_max", rmax)
                     fsp = "tile.index-%d.nz-%d.level-%d.x-%d.y-%d.%s"%(index, nz, level, x/tilesize, y/tilesize, self.tileformat)
