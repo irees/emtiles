@@ -70,17 +70,17 @@ class EMTileServer(twisted.web.resource.Resource):
         db = request.postpath[0]
         db = "%s.mbtiles"%os.path.basename(db)
         index = 0
-        nz = 1
+        nz = 0
         level = int(request.postpath[2])
         x = int(request.postpath[3])
         # Y is flipped in MBTiles!
         y = int(request.postpath[4])
         y = 2**level - 1 - y
         tiles = emtiles.tiles.EMTile(db)
-        #try:
-        data = tiles.read_tile(index=0, nz=1, level=level, x=x, y=y)
-        #except:
-        #    raise HTTP404("Tile not found.")
+        try:
+            data = tiles.read_tilestack(index=index, nz=nz, level=level, x=x, y=y)
+        except:
+            raise HTTP404("Tile not found.")
         return str(data), {'Content-Type': 'image/jpg'}
 
     def info(self, request):

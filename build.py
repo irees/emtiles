@@ -60,7 +60,7 @@ class EMDataBuilder(object):
                 self.build_nz(img2, index=index, nz=i)
         return header
 
-    def build_nz(self, img, nz=1, index=0):
+    def build_nz(self, img, nz=0, index=0):
         """Build tiles, thumbnails, pspec, etc. for a 2D EMData."""
         for tile in self.build_tiles(img, nz=nz, index=index):
             self.writer.insert_tile(*tile, unlink=True)
@@ -71,7 +71,7 @@ class EMDataBuilder(object):
         for info in self.build_fixed(img, nz=nz, index=index):
             self.writer.insert_tileinfo(*info, unlink=True)
                     
-    def build_tiles(self, img, index=0, nz=1, tilesize=256):
+    def build_tiles(self, img, index=0, nz=0, tilesize=256):
         """Build tiles for a 2D EMData."""
         self.log("build_tiles: nz %s, index %s, tilesize: %s"%(nz, index, tilesize))
         # Work with a copy of the EMData
@@ -102,7 +102,7 @@ class EMDataBuilder(object):
             # Shrink by 2 for next round.
             img2.process_inplace("math.meanshrink",{"n":2})
     
-    def build_fixed(self, img, index=0, nz=1, tilesize=256):
+    def build_fixed(self, img, index=0, nz=0, tilesize=256):
         """Build thumbnail of a 2D EMData."""
         # Output files
         fsp = "fixed.index-%d.nz-%d.size-%d.png"%(index, nz, tilesize)
@@ -127,7 +127,7 @@ class EMDataBuilder(object):
         img2.write_image(fsp)
         yield fsp, index, nz, 'thumbnail', tilesize
             
-    def build_pspec(self, img, tilesize=512, nz=1, index=0):
+    def build_pspec(self, img, tilesize=512, nz=0, index=0):
         """Build a 2D FFT and 1D rotationally averaged power spectrum of a 2D EMData."""
         # Output files
         outfile = "pspec.index-%d.z-%d.size-%d.png"%(index, nz, tilesize)

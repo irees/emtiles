@@ -13,6 +13,6 @@ Because EM images are frequently stacks of 2D images or 3D volumes, the
 database contains an additional table to support multiple tilesets. Tiles are
 stored in the "tilestack" table, similar to MBTiles "tiles" but with additional
 "tile_index" and "tile_nz" columns. For compatibility, the "tiles" table is a
-view where tile_index = 0 and tile_nz = 1 (e.g. simple 2D image). This allows
+view where tile_index = 0 and tile_nz = 0 (e.g. simple 2D image). This allows
 an EM aware tile server to serve tilesets of image stacks and 3D volumes, while
 still allowing standard MBTile software to view basic 2D images.

@@ -66,7 +66,7 @@ class EMTile(object):
                 FROM tilestack
                 WHERE 
                     tilestack.tile_index = 0 AND
-                    tilestack.tile_nz = 1                   
+                    tilestack.tile_nz = 0
         """
         metadata = {
             'name': self.db,
