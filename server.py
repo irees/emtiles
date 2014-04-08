@@ -1,51 +1,17 @@
 """EMTiles-aware MBTiles Server."""
 import os
 import json
+import inspect
 import twisted.python.failure
 import twisted.internet
 import twisted.web.resource
 import twisted.web.server
 import emtiles.tiles
 
-VIEW = """
-<!DOCTYPE html>
-<html>
-<head>
-	<title>EMTiles Demo</title>
-    <link rel="stylesheet" href="http://leafletjs.com/dist/leaflet.css" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
-    <script type="text/javascript">
-        var maptemplate = 'tile/{z}/{x}/{y}';
-        $(document).ready(function() {
-            var update = function(){
-                var index = $("#set-index").val();
-                var nz = $("#set-nz").val();
-                layer.setUrl(maptemplate+"?index="+index+"&nz="+nz);
-            }
-            $("#set-index").change(update);
-            $("#set-nz").change(update);
-        });
-    </script>
-</head>
-<body>
-    <div>
-        Index: <input id="set-index" type="range" min="0" max="10" value="0">
-        Z: <input id="set-nz" type="range" min="0" max="10" value="0">
-    </div>
-	<div id="map" style="width: 800px; height: 800px"></div>
-	<script src="http://leafletjs.com/dist/leaflet.js"></script>
-	<script>
-		var map = L.map('map').setView([0, 0], 0);
-        var layer = L.tileLayer(maptemplate, {
-            'noWrap': true,
-        });
-        layer.addTo(map);
-	</script>
-</body>
-</html>
-"""
-
+def filepath(filename):
+    d = os.path.dirname(inspect.getfile(inspect.currentframe()))
+    return os.path.join(d, filename)
+    
 class HTTPResponseCode(Exception):
     code = None
 
@@ -106,7 +72,9 @@ class EMTileServer(twisted.web.resource.Resource):
         return method(request)
     
     def view(self, request):
-        return VIEW, {}
+        with open(filepath('static/index.html')) as f:
+            data = f.read()
+        return data, {}
     
     def tile(self, request):
         assert len(request.postpath) == 5
