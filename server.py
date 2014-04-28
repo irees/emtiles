@@ -20,7 +20,7 @@ class HTTP404(Exception):
 
 class EMTileServer(twisted.web.resource.Resource):
     """EMTileServer."""
-    isLeaf = True
+    isLeaf = True    
     def render_GET(self, request):
         d = twisted.internet.threads.deferToThread(self._render, request)
         d.addCallback(self._render_cb, request)

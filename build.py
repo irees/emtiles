@@ -181,8 +181,8 @@ if __name__ == "__main__":
     parser.add_argument("infile", help="Input EM file")
     parser.add_argument("outfile", help="Output MBTiles file")
     parser.add_argument("--tileformat", help="Tile format", default="jpg")
-    parser.add_argument("--unlink", help="Remove temporary tile files", action='store_true')
+    parser.add_argument("--keep", help="Don't remove temporary tile files", action='store_true')
     args = parser.parse_args()
-    builder = EMDataBuilder(args.infile, args.outfile, tileformat=args.tileformat, unlink=args.unlink)
+    builder = EMDataBuilder(args.infile, args.outfile, tileformat=args.tileformat, unlink=(not args.keep))
     builder.build()
     

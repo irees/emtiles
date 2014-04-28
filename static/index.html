@@ -14,6 +14,14 @@
                 var nz = $("#set-nz").val();
                 layer.setUrl(maptemplate+"?index="+index+"&nz="+nz);
             }
+            $("#set-index-range").change(function() {
+               $("#set-index").val($(this).val());
+               update(); 
+            });
+            $("#set-nz-range").change(function() {
+               $("#set-nz").val($(this).val());
+               update(); 
+            });
             $("#set-index").change(update);
             $("#set-nz").change(update);
         });
@@ -21,12 +29,14 @@
 </head>
 <body>
     <div>
-        Index: <input id="set-index" type="range" min="0" max="10" value="0">
-        Z: <input id="set-nz" type="range" min="0" max="10" value="0">
+        Index: <input id="set-index-range" type="range" min="0" max="10" value="0"> <input class="set-index" id="set-index" type="text" value="0" />
+        Z: <input id="set-nz-range" type="range" min="0" max="340" value="0"> <input class="set-nz" id="set-nz" type="text" value="0" />
     </div>
 	<div id="map" style="width: 800px; height: 800px; background: white;"></div>
     	<script>
-    		var map = L.map('map').setView([0, 0], 0);
+    		var map = L.map('map', {
+                'fadeAnimation': false,                
+    		}).setView([0, 0], 2);
             var layer = L.tileLayer(maptemplate, {
                 'noWrap': true,
             });
